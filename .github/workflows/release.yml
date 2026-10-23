@@ -58,7 +58,7 @@ jobs:
       - name: Install Android build dependencies
         shell: pwsh
         run: |
-          sdkmanager 'platforms;android-29' 'platforms;android-36' 'build-tools;36.1.0' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+          sdkmanager 'platforms;android-29' 'platforms;android-36' 'build-tools;36.1.0' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'ndk;27.3.13750724' 'cmake;3.22.1'
           if ($LASTEXITCODE -ne 0) { throw 'Android SDK installation failed' }
           $target = Join-Path $env:LOCALAPPDATA 'Android/Sdk'
           if (!(Test-Path -LiteralPath $target)) {
