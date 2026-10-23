@@ -1,0 +1,70 @@
+name: VR portable build
+# Builds the AXRB-Emulatorless portable ZIP (no installer) for the VR library.
+# On failure the tail of the full build log is published as an annotation.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: Install Android build dependencies
+        shell: pwsh
+        run: |
+          sdkmanager 'platforms;android-29' 'platforms;android-36' 'build-tools;36.1.0' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'ndk;27.3.13750724' 'cmake;3.22.1'
+          if ($LASTEXITCODE -ne 0) { throw 'Android SDK installation failed' }
+          $target = Join-Path $env:LOCALAPPDATA 'Android/Sdk'
+          if (!(Test-Path -LiteralPath $target)) {
+            New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+            New-Item -ItemType Junction -Path $target -Target $env:ANDROID_HOME | Out-Null
+          }
+      - uses: actions/cache@v4
+        with:
+          path: out/deps
+          key: direct-deps-${{ hashFiles('scripts/build/direct_deps.ps1') }}
+      - name: Build portable launcher
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build\build-launcher.ps1 -Portable -KeepUnpacked > out\build.log 2>&1"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $tail = (Get-Content -LiteralPath out\build.log -Tail 120) -join "`n"
+            $tail = $tail.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
+            Write-Output "::error title=Build log tail::$tail"
+            exit $code
+          }
+          Get-ChildItem out\releases | Select-Object Name, Length
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log-${{ github.run_id }}
+          path: out/build.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AXRB-Emulatorless-Portable-${{ github.run_id }}
+          if-no-files-found: error
+          path: |
+            out/releases/AXRB-Emulatorless-Portable-*.zip
+            out/releases/SHA256SUMS-*-portable.txt
