@@ -43,7 +43,9 @@ jobs:
           path: out/deps
           key: direct-deps-${{ hashFiles('scripts/build/direct_deps.ps1') }}
       - name: Build portable launcher
-        shell: pwsh
+        shell: powershell
+        env:
+          PSModulePath: ''
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
           cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build\build-launcher.ps1 -Portable -KeepUnpacked > out\build.log 2>&1"
